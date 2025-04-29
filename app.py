@@ -5,17 +5,17 @@ from tensorflow import keras
 import pandas as pd
 from sklearn import preprocessing
 import numpy as np
+import os
 #import models for streamlit
 
 import gdown
 
 # a file
-url = "https://drive.google.com/file/d/18CjNTBC7qt3NQvvHmarXtycDKdp1sK-V/view?usp=drive_link"
-output = "RFR_model.pkl"
-gdown.download(url, output)
+if not os.path.exists("Fuel Efficency estimator/RFR_model.pkl"):
+  url = "https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv"
+  gdown.download_folder(url)
 
-
-with open("RFR_model.pkl", "rb") as f:
+with open("Fuel Efficency estimator/RFR_model.pkl", "rb") as f:
   clf = pickle.load(f)
 #try:
 #  model1 = keras.models.load_model('drive/MyDrive/fuel_project/model1.keras')
