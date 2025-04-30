@@ -1,5 +1,5 @@
 gdown==5.2.0
-numpy==2.2.5
+numpy==2.0.0
 pandas==2.2.3
 scikit_learn==1.6.1
 streamlit==1.45.0
