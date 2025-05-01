@@ -224,8 +224,8 @@ if run:
     st.write("Predicting...")
     st.session_state.prediction = clf.predict(input)
     if units == 'miles per gallon':
-      st.session_state.prediction[0][0] = st.session_state.prediction[0][0] * 235.215
-      st.session_state.prediction[0][1] = st.session_state.prediction[0][1] * 235.215
+      st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
+      st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
   st.write("City road fuel consumption")
   st.write(st.session_state.prediction[0][0])
   st.write("Highway fuel consumption")
