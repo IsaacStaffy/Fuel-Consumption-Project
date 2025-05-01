@@ -41,7 +41,7 @@ def LabelEncode(column, order):
 #ui
 
 st.title("Fuel consumption estimator")
-st.subheader("An app to meet all your fuel estimation needs")
+st.subheader("Input stats for your car and click run to estimate fuel consumption")
 st.sidebar.title("Inputs")
 
 def ui():
@@ -71,11 +71,14 @@ def ui():
   gears = st.sidebar.slider("Gear count", 1, 10, disabled=gears_bool)
   data =  {"year" : year, "model" : model, "size" : size, "vehicle class" : vehicle_class, "engine size" : engine_size, "cylinders" : cylinders, "fuel" : fuel_type,
            "make" : make, "transmission" : transmission, "gears" : gears}
-  return pd.DataFrame(data, index=[0])
+  units = st.selectbox('Units ' , ['miles per gallon' , 'liters per 100 kilometers'])
+
+
+  return pd.DataFrame(data, index=[0]), units
 
 
 
-input = ui()
+input, units = ui()
 
 run = st.button("Run")
 
@@ -220,5 +223,13 @@ if run:
 
     st.write("Predicting...")
     st.session_state.prediction = clf.predict(input)
+    if units == 'miles per gallon':
+      st.session_state.prediction[0][0] = st.session_state.prediction[0][0] * 235.215
+      st.session_state.prediction[0][1] = st.session_state.prediction[0][1] * 235.215
+  st.write("City road fuel consumption")
+  st.write(st.session_state.prediction[0][0])
+  st.write("Highway fuel consumption")
+  st.write(st.session_state.prediction[0][1])
+  st.write("emmisions (grams per km)")
+  st.write(st.session_state.prediction[0][2])
 
-  st.write(st.session_state.prediction)
