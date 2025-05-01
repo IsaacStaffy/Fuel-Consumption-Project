@@ -17,19 +17,15 @@ if not os.path.exists("Fuel Efficency estimator/RFR_model.pkl"):
 
 with open("Fuel Efficency estimator/RFR_model.pkl", "rb") as f:
   clf = pickle.load(f)
-#try:
-#  model1 = keras.models.load_model('drive/MyDrive/fuel_project/model1.keras')
-#  model2 = keras.models.load_model('drive/MyDrive/fuel_project/model2.keras')
-#  model3 = keras.models.load_model('drive/MyDrive/fuel_project/model3.keras')
-#except:
-#  with open("NN_model1.pkl", "rb") as f:
-#    pickle.load(f)
-#
-#  with open("NN_model2.pkl", "rb") as f:
-#    pickle.load(f)
-#
-#  with open("NN_model3.pkl", "rb") as f:
-#    pickle.load(f)
+if os.path.exists("Fuel Efficency estimator/NN_model1.pkl"):
+  with open("NN_model1.pkl", "rb") as f:
+    model1 = pickle.load(f)
+
+  with open("NN_model2.pkl", "rb") as f:
+    model2 = pickle.load(f)
+
+  with open("NN_model3.pkl", "rb") as f:
+    model3 = pickle.load(f)
 
 #label encoding function
 def LabelEncode(column, order):
@@ -72,13 +68,14 @@ def ui():
   data =  {"year" : year, "model" : model, "size" : size, "vehicle class" : vehicle_class, "engine size" : engine_size, "cylinders" : cylinders, "fuel" : fuel_type,
            "make" : make, "transmission" : transmission, "gears" : gears}
   units = st.selectbox('Units ' , ['miles per gallon' , 'liters per 100 kilometers'])
+  model_type = st.selectbox("Select a model to use", ["Random forst regressor", "Nural network"])
 
 
-  return pd.DataFrame(data, index=[0]), units
+  return pd.DataFrame(data, index=[0]), units, model_type
 
 
 
-input, units = ui()
+input, units, model_type = ui()
 
 run = st.button("Run")
 
@@ -222,7 +219,13 @@ if run:
     input = [input]
 
     st.write("Predicting...")
-    st.session_state.prediction = clf.predict(input)
+    if model_type == "Random forest regressor":
+      st.session_state.prediction = clf.predict(input)
+    else:
+      st.session_state.predictions = []
+      st.session_state.predictions.append(model1.predict(input[0][0]))
+      st.session_state.predictions.append(model2.predict(input[0][1]))
+      st.session_state.predictions.append(model3.predict(input[0][2]))
     if units == 'miles per gallon':
       st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
       st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
