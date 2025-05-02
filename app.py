@@ -222,10 +222,7 @@ if run:
     if model_type == "Random forest regressor":
       st.session_state.prediction = clf.predict(input)
     else:
-      st.session_state.predictions = []
-      st.session_state.predictions.append(model1.predict(input[0][0]))
-      st.session_state.predictions.append(model2.predict(input[0][1]))
-      st.session_state.predictions.append(model3.predict(input[0][2]))
+      st.write("work in progress")
     if units == 'miles per gallon':
       st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
       st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
