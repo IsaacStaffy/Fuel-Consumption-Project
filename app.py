@@ -17,14 +17,7 @@ if not os.path.exists("Fuel Efficency estimator/RFR_model.pkl"):
 
 with open("Fuel Efficency estimator/RFR_model.pkl", "rb") as f:
   clf = pickle.load(f)
-with open("Fuel Efficency estimator/NN_model1.pkl", "rb") as f:
-  model1 = pickle.load(f)
 
-with open("Fuel Efficency estimator/NN_model2.pkl", "rb") as f:
-  model2 = pickle.load(f)
-
-with open("Fuel Efficency estimator/NN_model3.pkl", "rb") as f:
-  model3 = pickle.load(f)
 
 #label encoding function
 def LabelEncode(column, order):
@@ -218,10 +211,7 @@ if run:
     input = [input]
 
     st.write("Predicting...")
-    if model_type == "Random forest regressor":
-      st.session_state.prediction = clf.predict(input)
-    else:
-      st.write("work in progress")
+    st.session_state.prediction = clf.predict(input)
     if units == 'miles per gallon':
       st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
       st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
