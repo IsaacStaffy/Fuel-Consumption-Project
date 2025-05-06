@@ -6,6 +6,12 @@ import pandas as pd
 from sklearn import preprocessing
 import numpy as np
 import os
+import math
+
+def truncate(f, n):
+    if n == 0:
+      return int(f)
+    return math.floor(f * 10 ** n) / 10 ** n
 #import models for streamlit
 
 import gdown
@@ -17,7 +23,6 @@ if not os.path.exists("Fuel Efficency estimator/RFR_model.pkl"):
 
 with open("Fuel Efficency estimator/RFR_model.pkl", "rb") as f:
   clf = pickle.load(f)
-
 
 #label encoding function
 def LabelEncode(column, order):
@@ -60,14 +65,15 @@ def ui():
   data =  {"year" : year, "model" : model, "size" : size, "vehicle class" : vehicle_class, "engine size" : engine_size, "cylinders" : cylinders, "fuel" : fuel_type,
            "make" : make, "transmission" : transmission, "gears" : gears}
   units = st.selectbox('Units ' , ['miles per gallon' , 'liters per 100 kilometers'])
-  model_type = st.selectbox("Select a model to use", ["Random forst regressor", "Nural network"])
+  decimal_places = st.slider("Decimal places", 0, 10, value=1)
+  #model_type = st.selectbox("Select a model to use", ["Random forest regressor", "Neural network"])
 
 
-  return pd.DataFrame(data, index=[0]), units, model_type
+  return pd.DataFrame(data, index=[0]), units, decimal_places
 
 
 
-input, units, model_type = ui()
+input, units, decimal_places = ui()
 
 run = st.button("Run")
 
@@ -76,9 +82,12 @@ run = st.button("Run")
 if 'prediction' not in st.session_state:
     st.session_state['prediction'] = None
 
+if 'ran' not in st.session_state:
+    st.session_state['ran'] = False
+
 if run:
-  with st.status("running..."):
-    st.write("Encoding...")
+  st.session_state.ran = True
+  with st.spinner("running..."):
     # encoding
     # label encoding
     label_encoder = preprocessing.LabelEncoder()
@@ -130,7 +139,6 @@ if run:
     input = pd.concat([input, onehot_T], axis=1)
     input = pd.concat([input, onehot_M], axis=1)
     input = pd.concat([input, onehot_V], axis=1)
-    st.write("Reordering...")
     input = input[['year',
   'model',
   'size',
@@ -206,19 +214,61 @@ if run:
   'transmission type_AV',
   'transmission type_M']]
 
-    st.write("Converting...")
     input = input.loc[0].values.tolist()
     input = [input]
 
-    st.write("Predicting...")
     st.session_state.prediction = clf.predict(input)
-    if units == 'miles per gallon':
-      st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
-      st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
-  st.write("City road fuel consumption")
-  st.write(st.session_state.prediction[0][0])
-  st.write("Highway fuel consumption")
-  st.write(st.session_state.prediction[0][1])
-  st.write("emmisions (grams per km)")
-  st.write(st.session_state.prediction[0][2])
+    #else:
+    #  st.session_state.predictions = []
+    #  st.write(input)
+    #  st.session_state.predictions.append(model1.predict(np.array(input[0])))
+    #  st.session_state.predictions.append(model2.predict(np.array(input[0])))
+    #  st.session_state.predictions.append(model3.predict(np.array(input[0])))
 
+  if units == 'miles per gallon':
+    st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
+    st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
+
+if st.session_state.ran == True:
+
+  titles = ["City road fuel consumption", "Highway fuel consumption", "Emmisions (grams per km)"]
+
+  predictions = [truncate(st.session_state.prediction[0][0], decimal_places), truncate(st.session_state.prediction[0][1], decimal_places), truncate(st.session_state.prediction[0][2], decimal_places)]
+  
+  output = pd.DataFrame([predictions], columns=titles)
+
+  st.table(output)
+
+  #st.write("City road fuel consumption")
+  #st.write(truncate(st.session_state.prediction[0][0], decimal_places))
+  #st.write("Highway fuel consumption")
+  #st.write(truncate(st.session_state.prediction[0][1], decimal_places))
+  #st.write("emmisions (grams per km)")
+  #st.write(truncate(st.session_state.prediction[0][2], decimal_places))
+
+  milage = st.number_input("Insert an estimated milage for a trip", value=None, placeholder="Insert estimated milage")
+  gas_price = st.number_input("Insert estimated price for gas in your area", value=None, placeholder="Insert estimated gas price")
+  tank_size = st.number_input("Insert the size in gallons of your gas tank", value=None, placeholder="Insert size here (gallons)")
+  road_type_slider = st.slider("Precentage of distance driven on the highway", 0, 100, value=75)
+
+  if milage and gas_price and tank_size:
+    highway_milage = (road_type_slider * (0.01)) * milage
+    road_milage = (1 - (road_type_slider * (0.01))) * milage
+
+    total_cost = truncate(((highway_milage / st.session_state.prediction[0][1]) + (road_milage / st.session_state.prediction[0][0])) * gas_price, 2)
+
+    tank_refills = int(((highway_milage / st.session_state.prediction[0][1]) + (road_milage / st.session_state.prediction[0][0])) / tank_size)
+
+    titles = ["Milage on highway", "Milage on roads"]
+    numbers = [highway_milage, road_milage]
+
+    output = pd.DataFrame([numbers], columns=titles)
+
+    st.table(output)
+
+    titles = ["Total trip cost", "Minimum tank refills"]
+    numbers = [total_cost, tank_refills]
+
+    output = pd.DataFrame([numbers], columns=titles)
+
+    st.table(output)
