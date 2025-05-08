@@ -81,7 +81,7 @@ def get_input_data():
 def preprocess_input(input_df):
     input_df = LabelEncode(input_df, 'model', ['2WD', 'AWD', '4WD'])
     input_df = LabelEncode(input_df, "size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
-    input_df = LabelEncode(input_df, "fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'], value="gasoline")
+    input_df = LabelEncode(input_df, "fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'], index=2)
 
     transmission_cats = [f"transmission type_{t}" for t in ["A", "AM", "AV", "M", "AS"]]
     make_cats = [f"make_{m}" for m in [
