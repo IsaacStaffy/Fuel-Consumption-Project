@@ -1,274 +1,157 @@
 import streamlit as st
 import pickle
 import tensorflow as tf
-from tensorflow import keras
 import pandas as pd
 from sklearn import preprocessing
 import numpy as np
 import os
 import math
-
-def truncate(f, n):
-    if n == 0:
-      return int(f)
-    return math.floor(f * 10 ** n) / 10 ** n
-#import models for streamlit
-
 import gdown
 
-# a file
-if not os.path.exists("Fuel Efficency estimator/RFR_model.pkl"):
-  url = "https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv"
-  gdown.download_folder(url)
+# ------------------------- Utility Functions -------------------------
 
-with open("Fuel Efficency estimator/RFR_model.pkl", "rb") as f:
-  clf = pickle.load(f)
+# Truncate float f to n decimal places without rounding
+def truncate(f, n):
+    if n == 0:
+        return int(f)
+    return math.floor(f * 10 ** n) / 10 ** n
 
-#label encoding function
-def LabelEncode(column, order):
-  label_encoder.fit(input[column])
-  label_encoder.classes_ = np.array(order)
-  input[column] = label_encoder.transform(input[column])
-  print(dict(zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_))))
+# Convert grams per kilometer to tonnes per mile
+def gpkm_to_tpm(gpkm):
+    grams_per_tonne = 1_000_000
+    kilometers_per_mile = 1.60934
+    return (gpkm / grams_per_tonne) * kilometers_per_mile
 
-#ui
+# Label encode a column using a specified class order
+def LabelEncode(input_df, column, order):
+    le = preprocessing.LabelEncoder()
+    le.fit(order)
+    input_df[column] = le.transform(input_df[column])
+    return input_df
 
-st.title("Fuel consumption estimator")
-st.subheader("Input stats for your car and click run to estimate fuel consumption")
-st.sidebar.title("Inputs")
+# Download and load the trained model
+def load_model():
+    model_path = "Fuel Efficency estimator/RFR_model.pkl"
+    if not os.path.exists(model_path):
+        url = "https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv"
+        gdown.download_folder(url)
+    with open(model_path, "rb") as f:
+        return pickle.load(f)
 
-def ui():
-  year = st.sidebar.slider("Year", 2000, 2023)
-  model = st.sidebar.pills("Drive type", ["2WD", "4WD", "AWD"], default="2WD")
-  size = st.sidebar.selectbox("Size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
-  vehicle_class = st.sidebar.selectbox("Vehicle class", ['compact', 'mid-size', 'station wagon', 'two-seater', 'full-size',
-        'suv', 'van', 'pickup truck', 'minivan', 'special purpose vehicle'])
-  engine_size = st.sidebar.slider("Engine size", 0.9, 8.5, step=0.1)
-  cylinders = st.sidebar.slider("Cylinder count", 1, 16)
-  fuel_type = st.sidebar.selectbox("Fuel type", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'])
-  make = st.sidebar.selectbox("Brand of vehicle", ['acura', 'audi', 'bmw', 'buick', 'cadillac', 'chevrolet',
-        'chrysler', 'daewoo', 'dodge', 'ferrari', 'ford', 'gmc', 'honda',
-        'hyundai', 'infiniti', 'isuzu', 'jaguar', 'jeep', 'kia',
-        'land rover', 'lexus', 'lincoln', 'mazda', 'mercedes-benz',
-        'nissan', 'oldsmobile', 'plymouth', 'pontiac', 'porsche', 'saab',
-        'saturn', 'subaru', 'suzuki', 'toyota', 'volkswagen', 'volvo',
-        'bentley', 'rolls-royce', 'maserati', 'mini', 'mitsubishi',
-        'smart', 'hummer', 'aston martin', 'lamborghini', 'bugatti',
-        'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis'])
-  transmission = st.sidebar.pills("Transmission type", ["A", "AM", "AS", "AV", "M"], default="A")
-  if transmission == "AV":
-    gears_bool = True
-    gears = 20
-  else:
-    gears_bool = False
-  gears = st.sidebar.slider("Gear count", 1, 10, disabled=gears_bool)
-  data =  {"year" : year, "model" : model, "size" : size, "vehicle class" : vehicle_class, "engine size" : engine_size, "cylinders" : cylinders, "fuel" : fuel_type,
-           "make" : make, "transmission" : transmission, "gears" : gears}
-  units = st.selectbox('Units ' , ['miles per gallon' , 'liters per 100 kilometers'])
-  decimal_places = st.slider("Decimal places", 0, 10, value=1)
-  #model_type = st.selectbox("Select a model to use", ["Random forest regressor", "Neural network"])
+# UI for collecting user inputs
+def get_input_data():
+    st.title("Fuel Consumption Estimator")
+    st.subheader("Input car details and click Run")
 
+    st.sidebar.title("Vehicle Inputs")
+    year = st.sidebar.slider("Year", 2000, 2023)
+    model = st.sidebar.radio("Drive Type", ["2WD", "4WD", "AWD"])
+    size = st.sidebar.selectbox("Size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
+    vehicle_class = st.sidebar.selectbox("Vehicle Class", [
+        'compact', 'mid-size', 'station wagon', 'two-seater', 'full-size',
+        'suv', 'van', 'pickup truck', 'minivan', 'special purpose vehicle'
+    ])
+    engine_size = st.sidebar.slider("Engine Size (L)", 0.9, 8.5, step=0.1)
+    cylinders = st.sidebar.slider("Cylinder Count", 1, 16)
+    fuel_type = st.sidebar.selectbox("Fuel Type", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'])
+    make = st.sidebar.selectbox("Brand", [
+        'acura', 'audi', 'bmw', 'buick', 'cadillac', 'chevrolet', 'chrysler', 'daewoo', 'dodge', 'ferrari',
+        'ford', 'gmc', 'honda', 'hyundai', 'infiniti', 'isuzu', 'jaguar', 'jeep', 'kia', 'land rover',
+        'lexus', 'lincoln', 'mazda', 'mercedes-benz', 'nissan', 'oldsmobile', 'plymouth', 'pontiac',
+        'porsche', 'saab', 'saturn', 'subaru', 'suzuki', 'toyota', 'volkswagen', 'volvo', 'bentley',
+        'rolls-royce', 'maserati', 'mini', 'mitsubishi', 'smart', 'hummer', 'aston martin', 'lamborghini',
+        'bugatti', 'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis'
+    ])
+    transmission = st.sidebar.radio("Transmission Type", ["A", "AM", "AS", "AV", "M"])
+    gears_disabled = (transmission == "AV")
+    gears = st.sidebar.slider("Number of Gears", 1, 10, disabled=gears_disabled)
 
-  return pd.DataFrame(data, index=[0]), units, decimal_places
+    units = st.selectbox("Display Units", ['miles per gallon', 'liters per 100 kilometers'])
+    decimal_places = st.slider("Decimal Places", 0, 10, value=4)
 
+    data = {
+        "year": year, "model": model, "size": size, "vehicle class": vehicle_class,
+        "engine size": engine_size, "cylinders": cylinders, "fuel": fuel_type,
+        "make": make, "transmission": transmission, "gears": gears
+    }
 
+    return pd.DataFrame(data, index=[0]), units, decimal_places
 
-input, units, decimal_places = ui()
+# Encode categorical variables using label encoding and one-hot encoding
+def preprocess_input(input_df):
+    input_df = LabelEncode(input_df, 'model', ['2WD', 'AWD', '4WD'])
+    input_df = LabelEncode(input_df, "size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
+    input_df = LabelEncode(input_df, "fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'], value="gasoline")
 
+    transmission_cats = [f"transmission type_{t}" for t in ["A", "AM", "AV", "M", "AS"]]
+    make_cats = [f"make_{m}" for m in [
+        'acura', 'audi', 'bmw', 'buick', 'cadillac', 'chevrolet', 'chrysler', 'daewoo', 'dodge', 'ferrari',
+        'ford', 'gmc', 'honda', 'hyundai', 'infiniti', 'isuzu', 'jaguar', 'jeep', 'kia', 'land rover',
+        'lexus', 'lincoln', 'mazda', 'mercedes-benz', 'nissan', 'oldsmobile', 'plymouth', 'pontiac',
+        'porsche', 'saab', 'saturn', 'subaru', 'suzuki', 'toyota', 'volkswagen', 'volvo', 'bentley',
+        'rolls-royce', 'maserati', 'mini', 'mitsubishi', 'smart', 'hummer', 'aston martin', 'lamborghini',
+        'bugatti', 'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis'
+    ]]
+    vehicle_cats = [f"vehicle_{v}" for v in [
+        'compact', 'mid-size', 'station wagon', 'two-seater', 'full-size',
+        'suv', 'van', 'pickup truck', 'minivan', 'special purpose vehicle'
+    ]]
+
+    onehot_T = pd.get_dummies(input_df["transmission"].astype(pd.CategoricalDtype(categories=transmission_cats)))
+    onehot_M = pd.get_dummies(input_df["make"].astype(pd.CategoricalDtype(categories=make_cats)))
+    onehot_V = pd.get_dummies(input_df["vehicle class"].astype(pd.CategoricalDtype(categories=vehicle_cats)))
+
+    input_df.drop(["transmission", "make", "vehicle class"], axis=1, inplace=True)
+    input_df = pd.concat([input_df, onehot_T, onehot_M, onehot_V], axis=1)
+
+    final_columns = ['year', 'model', 'size', 'engine size', 'cylinders', 'gears', 'fuel'] + make_cats + vehicle_cats + transmission_cats
+    return input_df[final_columns]
+
+# ------------------------- App Logic -------------------------
+
+model = load_model()
+input_df, units, decimal_places = get_input_data()
 run = st.button("Run")
 
-
-
-if 'prediction' not in st.session_state:
-    st.session_state['prediction'] = None
-
-if 'ran' not in st.session_state:
-    st.session_state['ran'] = False
+# Initialize session state variables
+st.session_state.setdefault('prediction', None)
+st.session_state.setdefault('ran', False)
 
 if run:
-  st.session_state.ran = True
-  with st.spinner("running..."):
-    # encoding
-    # label encoding
-    label_encoder = preprocessing.LabelEncoder()
+    st.session_state.ran = True
+    with st.spinner("Running prediction..."):
+        processed = preprocess_input(input_df)
+        input_values = [processed.loc[0].values.tolist()]
+        prediction = model.predict(input_values)
+        if units == 'miles per gallon':
+            prediction[0][0] = 235.215 / prediction[0][0]
+            prediction[0][1] = 235.215 / prediction[0][1]
+        st.session_state.prediction = prediction
 
+# ------------------------- Output Display -------------------------
 
+if st.session_state.ran:
+    titles = ["City Fuel Consumption", "Highway Fuel Consumption", "Emissions (g/km)"]
+    preds = [truncate(x, decimal_places) for x in st.session_state.prediction[0]]
+    st.table(pd.DataFrame([preds], columns=titles))
 
-    LabelEncode('model', ['2WD', 'AWD', '4WD'])
-    LabelEncode("size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
-    LabelEncode("fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'])
+    mileage = st.number_input("Trip Mileage Estimate", value=None)
+    gas_price = st.number_input("Estimated Gas Price", value=None)
+    tank_size = st.number_input("Gas Tank Size (gallons)", value=None)
+    highway_ratio = st.slider("Highway Driving %", 0, 100, value=75) / 100
 
-    transmission_catagories = ["A", "AM", "AV", "M", "AS"]
-    make_catagories = ['acura', 'audi', 'bmw', 'buick', 'cadillac', 'chevrolet',
-          'chrysler', 'daewoo', 'dodge', 'ferrari', 'ford', 'gmc', 'honda',
-          'hyundai', 'infiniti', 'isuzu', 'jaguar', 'jeep', 'kia',
-          'land rover', 'lexus', 'lincoln', 'mazda', 'mercedes-benz',
-          'nissan', 'oldsmobile', 'plymouth', 'pontiac', 'porsche', 'saab',
-          'saturn', 'subaru', 'suzuki', 'toyota', 'volkswagen', 'volvo',
-          'bentley', 'rolls-royce', 'maserati', 'mini', 'mitsubishi',
-          'smart', 'hummer', 'aston martin', 'lamborghini', 'bugatti',
-          'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis']
-    vehicle_class_catagories = ['compact', 'mid-size', 'station wagon', 'two-seater', 'full-size',
-          'suv', 'van', 'pickup truck', 'minivan', 'special purpose vehicle']
+    if mileage:
+        h_miles = highway_ratio * mileage
+        r_miles = (1 - highway_ratio) * mileage
+    if mileage and gas_price:
+        total_cost = truncate(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) * gas_price, 2)
+    if mileage and tank_size:
+        tank_refills = int(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / tank_size)
 
-    #add keywords to colum names to pass into model
-    i = 0
-    for value in transmission_catagories:
-      transmission_catagories[i] = "transmission type_" + value
-      i += 1
+    if mileage:
+        st.table(pd.DataFrame([[h_miles, r_miles]], columns=["Highway Miles", "City Miles"]))
+    if mileage and gas_price and tank_size:
+        st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
 
-    i = 0
-    for value in make_catagories:
-      make_catagories[i] = "make_" + value
-      i += 1
-
-    i = 0
-    for value in vehicle_class_catagories:
-      vehicle_class_catagories[i] = "vehicle_" + value
-      i += 1
-
-    # onehot encoding
-
-    onehot_T = pd.get_dummies(input["transmission"].astype(pd.CategoricalDtype(categories=transmission_catagories)))
-    onehot_M = pd.get_dummies(input["make"].astype(pd.CategoricalDtype(categories=make_catagories)))
-    onehot_V = pd.get_dummies(input["vehicle class"].astype(pd.CategoricalDtype(categories=vehicle_class_catagories)))
-
-    _ = input.drop("transmission", axis=1, inplace=True)
-    _ = input.drop("make", axis=1, inplace=True)
-    _ = input.drop("vehicle class", axis=1, inplace=True)
-    input = pd.concat([input, onehot_T], axis=1)
-    input = pd.concat([input, onehot_M], axis=1)
-    input = pd.concat([input, onehot_V], axis=1)
-    input = input[['year',
-  'model',
-  'size',
-  'engine size',
-  'cylinders',
-  'gears',
-  'fuel',
-  'make_acura',
-  'make_alfa romeo',
-  'make_aston martin',
-  'make_audi',
-  'make_bentley',
-  'make_bmw',
-  'make_bugatti',
-  'make_buick',
-  'make_cadillac',
-  'make_chevrolet',
-  'make_chrysler',
-  'make_daewoo',
-  'make_dodge',
-  'make_ferrari',
-  'make_fiat',
-  'make_ford',
-  'make_genesis',
-  'make_gmc',
-  'make_honda',
-  'make_hummer',
-  'make_hyundai',
-  'make_infiniti',
-  'make_isuzu',
-  'make_jaguar',
-  'make_jeep',
-  'make_kia',
-  'make_lamborghini',
-  'make_land rover',
-  'make_lexus',
-  'make_lincoln',
-  'make_maserati',
-  'make_mazda',
-  'make_mercedes-benz',
-  'make_mini',
-  'make_mitsubishi',
-  'make_nissan',
-  'make_oldsmobile',
-  'make_plymouth',
-  'make_pontiac',
-  'make_porsche',
-  'make_ram',
-  'make_rolls-royce',
-  'make_saab',
-  'make_saturn',
-  'make_scion',
-  'make_smart',
-  'make_srt',
-  'make_subaru',
-  'make_suzuki',
-  'make_toyota',
-  'make_volkswagen',
-  'make_volvo',
-  'vehicle_compact',
-  'vehicle_full-size',
-  'vehicle_mid-size',
-  'vehicle_minivan',
-  'vehicle_pickup truck',
-  'vehicle_special purpose vehicle',
-  'vehicle_station wagon',
-  'vehicle_suv',
-  'vehicle_two-seater',
-  'vehicle_van',
-  'transmission type_A',
-  'transmission type_AM',
-  'transmission type_AS',
-  'transmission type_AV',
-  'transmission type_M']]
-
-    input = input.loc[0].values.tolist()
-    input = [input]
-
-    st.session_state.prediction = clf.predict(input)
-    #else:
-    #  st.session_state.predictions = []
-    #  st.write(input)
-    #  st.session_state.predictions.append(model1.predict(np.array(input[0])))
-    #  st.session_state.predictions.append(model2.predict(np.array(input[0])))
-    #  st.session_state.predictions.append(model3.predict(np.array(input[0])))
-
-  if units == 'miles per gallon':
-    st.session_state.prediction[0][0] = 235.215 / st.session_state.prediction[0][0]
-    st.session_state.prediction[0][1] = 235.215 / st.session_state.prediction[0][1]
-
-if st.session_state.ran == True:
-
-  titles = ["City road fuel consumption", "Highway fuel consumption", "Emmisions (grams per km)"]
-
-  predictions = [truncate(st.session_state.prediction[0][0], decimal_places), truncate(st.session_state.prediction[0][1], decimal_places), truncate(st.session_state.prediction[0][2], decimal_places)]
-  
-  output = pd.DataFrame([predictions], columns=titles)
-
-  st.table(output)
-
-  #st.write("City road fuel consumption")
-  #st.write(truncate(st.session_state.prediction[0][0], decimal_places))
-  #st.write("Highway fuel consumption")
-  #st.write(truncate(st.session_state.prediction[0][1], decimal_places))
-  #st.write("emmisions (grams per km)")
-  #st.write(truncate(st.session_state.prediction[0][2], decimal_places))
-
-  milage = st.number_input("Insert an estimated milage for a trip", value=None, placeholder="Insert estimated milage")
-  gas_price = st.number_input("Insert estimated price for gas in your area", value=None, placeholder="Insert estimated gas price")
-  tank_size = st.number_input("Insert the size in gallons of your gas tank", value=None, placeholder="Insert size here (gallons)")
-  road_type_slider = st.slider("Precentage of distance driven on the highway", 0, 100, value=75)
-
-  if milage and gas_price and tank_size:
-    highway_milage = (road_type_slider * (0.01)) * milage
-    road_milage = (1 - (road_type_slider * (0.01))) * milage
-
-    total_cost = truncate(((highway_milage / st.session_state.prediction[0][1]) + (road_milage / st.session_state.prediction[0][0])) * gas_price, 2)
-
-    tank_refills = int(((highway_milage / st.session_state.prediction[0][1]) + (road_milage / st.session_state.prediction[0][0])) / tank_size)
-
-    titles = ["Milage on highway", "Milage on roads"]
-    numbers = [highway_milage, road_milage]
-
-    output = pd.DataFrame([numbers], columns=titles)
-
-    st.table(output)
-
-    titles = ["Total trip cost", "Minimum tank refills"]
-    numbers = [total_cost, tank_refills]
-
-    output = pd.DataFrame([numbers], columns=titles)
-
-    st.table(output)
+    emissions_tpm = gpkm_to_tpm(st.session_state.prediction[0][2])
+    st.write(f"### Totatl Emissions (tonnes): {truncate(emissions_tpm * milage, 10)}")
