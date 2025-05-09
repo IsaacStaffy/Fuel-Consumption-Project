@@ -53,7 +53,7 @@ def get_input_data():
     ])
     engine_size = st.sidebar.slider("Engine Size (L)", 0.9, 8.5, step=0.1)
     cylinders = st.sidebar.slider("Cylinder Count", 1, 16)
-    fuel_type = st.sidebar.selectbox("Fuel Type", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'])
+    fuel_type = st.sidebar.selectbox("Fuel Type", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'], index=2)
     make = st.sidebar.selectbox("Brand", [
         'acura', 'audi', 'bmw', 'buick', 'cadillac', 'chevrolet', 'chrysler', 'daewoo', 'dodge', 'ferrari',
         'ford', 'gmc', 'honda', 'hyundai', 'infiniti', 'isuzu', 'jaguar', 'jeep', 'kia', 'land rover',
@@ -81,7 +81,7 @@ def get_input_data():
 def preprocess_input(input_df):
     input_df = LabelEncode(input_df, 'model', ['2WD', 'AWD', '4WD'])
     input_df = LabelEncode(input_df, "size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
-    input_df = LabelEncode(input_df, "fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'], index=2)
+    input_df = LabelEncode(input_df, "fuel", ['diesel', 'premium gasoline', 'gasoline', 'ethanol', 'natural gas'])
 
     transmission_cats = [f"transmission type_{t}" for t in ["A", "AM", "AV", "M", "AS"]]
     make_cats = [f"make_{m}" for m in [
