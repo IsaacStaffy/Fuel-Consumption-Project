@@ -1,6 +1,5 @@
 import streamlit as st
 import pickle
-import tensorflow as tf
 import pandas as pd
 from sklearn import preprocessing
 import numpy as np
@@ -152,6 +151,6 @@ if st.session_state.ran:
         st.table(pd.DataFrame([[h_miles, r_miles]], columns=["Highway Miles", "City Miles"]))
     if mileage and gas_price and tank_size:
         st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
-
-    emissions_tpm = gpkm_to_tpm(st.session_state.prediction[0][2])
-    st.write(f"### Totatl Emissions (tonnes): {truncate(emissions_tpm * milage, 10)}")
+    if mileage:
+      emissions_tpm = gpkm_to_tpm(st.session_state.prediction[0][2])
+      st.subheader(f"Total Emissions (Tonnes): {truncate(emissions_tpm * mileage, 10)}")
