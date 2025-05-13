@@ -193,6 +193,7 @@ if st.session_state.ran:
       end = st.text_input("End point")
 
       #API_KEY = "AIzaSyAynX3T_Zw6hbCBsLdFng9sdDwZHEdAg5I"
+      API_KEY = st.secrets["API_KEY"]
       gmaps = googlemaps.Client(key=API_KEY)
 
       if start and end:
