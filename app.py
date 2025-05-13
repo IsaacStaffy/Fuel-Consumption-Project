@@ -6,8 +6,24 @@ import numpy as np
 import os
 import math
 import gdown
+import googlemaps
 
 # ------------------------- Utility Functions -------------------------
+
+# Address to Coordinates (Geocoding)
+def get_lat_lng(gmaps, address):
+    try:
+        geocode_result = gmaps.geocode(address)
+        if geocode_result:
+            lat = geocode_result[0]['geometry']['location']['lat']
+            lng = geocode_result[0]['geometry']['location']['lng']
+            return lat, lng
+        else:
+            print("Geocoding failed. Address not found.")
+            return None
+    except Exception as e:
+        print(f"An error occurred during geocoding: {e}")
+        return None
 
 # Truncate float f to n decimal places without rounding
 def truncate(f, n):
@@ -39,10 +55,13 @@ def load_model():
 
 # UI for collecting user inputs
 def get_input_data():
-    st.title("Fuel Consumption Estimator")
-    st.subheader("Input car details and click Run")
+    st.title("Fuel Consumption and Road trip calculator")
+    st.subheader("Input vehical specifications and click run")
 
-    st.sidebar.title("Vehicle Inputs")
+    st.sidebar.title("Vehicle Spcifications")
+    st.sidebar.write("Use Automobile-catalog to get unknown vehicle details")
+    st.sidebar.link_button("Go to Automobile-catalog", "https://www.automobile-catalog.com/")
+
     year = st.sidebar.slider("Year", 2000, 2023)
     model = st.sidebar.radio("Drive Type", ["2WD", "4WD", "AWD"])
     size = st.sidebar.selectbox("Size", ['mini', 'sub', 'small', 'mid-size', 'standard', 'full-size', 'passenger', 'cargo', 'massive'])
@@ -61,9 +80,22 @@ def get_input_data():
         'rolls-royce', 'maserati', 'mini', 'mitsubishi', 'smart', 'hummer', 'aston martin', 'lamborghini',
         'bugatti', 'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis'
     ])
-    transmission = st.sidebar.radio("Transmission Type", ["A", "AM", "AS", "AV", "M"])
+    transmission = st.sidebar.radio("Transmission Type", ["Automatic", "Automatic Manual", "Automatic with select shift", "Continuously variable transmission", "Manual"])
+
     gears_disabled = (transmission == "AV")
     gears = st.sidebar.slider("Number of Gears", 1, 10, disabled=gears_disabled)
+
+    # Remap Transission types from readible values to the ones used in preproccesing and prediction
+    if transmission == "Automatic":
+      transmission = "A"
+    elif transmission == "Automatic Manual":
+      transmission = "AM"
+    elif transmission == "Automatic with select shift":
+      transmission = "AS"
+    elif transmission == "Continuously variable transmission":
+      transmission = "AV"
+    elif transmission == "Manual":
+      transmission = "M"
 
     units = st.selectbox("Display Units", ['miles per gallon', 'liters per 100 kilometers'])
     decimal_places = st.slider("Decimal Places", 0, 10, value=4)
@@ -91,6 +123,7 @@ def preprocess_input(input_df):
         'rolls-royce', 'maserati', 'mini', 'mitsubishi', 'smart', 'hummer', 'aston martin', 'lamborghini',
         'bugatti', 'scion', 'fiat', 'ram', 'srt', 'alfa romeo', 'genesis'
     ]]
+
     vehicle_cats = [f"vehicle_{v}" for v in [
         'compact', 'mid-size', 'station wagon', 'two-seater', 'full-size',
         'suv', 'van', 'pickup truck', 'minivan', 'special purpose vehicle'
@@ -110,11 +143,13 @@ def preprocess_input(input_df):
 
 model = load_model()
 input_df, units, decimal_places = get_input_data()
-run = st.button("Run")
+run = st.button("Run", use_container_width=True)
 
 # Initialize session state variables
 st.session_state.setdefault('prediction', None)
 st.session_state.setdefault('ran', False)
+
+bypass = st.segmented_control("Google Maps API", ["Use", "Bypass"], selection_mode="single")
 
 if run:
     st.session_state.ran = True
@@ -151,6 +186,39 @@ if st.session_state.ran:
         st.table(pd.DataFrame([[h_miles, r_miles]], columns=["Highway Miles", "City Miles"]))
     if mileage and gas_price and tank_size:
         st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
+
+    # Use google maps api: disply features
+    if bypass == "Use":
+      start = st.text_input("Start point")
+      end = st.text_input("End point")
+
+      #API_KEY = "AIzaSyAynX3T_Zw6hbCBsLdFng9sdDwZHEdAg5I"
+      gmaps = googlemaps.Client(key=API_KEY)
+
+      if start and end:
+        start_coords = get_lat_lng(gmaps, start)
+        end_coords = get_lat_lng(gmaps, end)
+
+        if start_coords and end_coords:
+          start_lat, start_lon = start_coords
+          end_lat, end_lon = end_coords
+
+          points = pd.DataFrame({"lat": [start_lat, end_lat], "lon": [start_lon, end_lon]})
+          st.map(points)
+
+          st.link_button("Go to Google mpas route", f"https://www.google.com/maps/dir/?api=1&origin={start_lat},{start_lon}&destination={end_lat},{end_lon}&travelmode=driving")
+
     if mileage:
       emissions_tpm = gpkm_to_tpm(st.session_state.prediction[0][2])
       st.subheader(f"Total Emissions (Tonnes): {truncate(emissions_tpm * mileage, 10)}")
+
+      st.write(f"Donate ${truncate((emissions_tpm * mileage) * 18.68, 2)}, to offset carbon emmisions") 
+
+      st.link_button("Donate Here", "https://www.cooleffect.org/store/donate")
+
+      st.subheader("What is this?")
+      st.write("Cooleffect.org takes carbon offset donations and uses them to fund emmision reducing projects around the world!")
+      st.write("Learn more here:")
+      st.page_link("https://www.cooleffect.org/about-us", label="CoolEffect.org", icon="🌎")
+
+
