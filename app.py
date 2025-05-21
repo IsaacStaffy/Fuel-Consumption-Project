@@ -12,11 +12,8 @@ import requests
 import json
 from geopy.distance import geodesic
 
-API_KEY = "AIzaSyAynX3T_Zw6hbCBsLdFng9sdDwZHEdAg5I"
-ORS_client = openrouteservice.Client(key='5b3ce3597851110001cf62482e7b727c0455400493ff86701141d359')
-ORS_API_KEY = "5b3ce3597851110001cf62482e7b727c0455400493ff86701141d359"
 
-#API_KEY = st.secrets["API_KEY"]
+API_KEY = st.secrets["API_KEY"]
 gmaps = googlemaps.Client(key=API_KEY)
 
 
