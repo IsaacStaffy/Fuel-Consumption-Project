@@ -14,6 +14,8 @@ from geopy.distance import geodesic
 
 
 API_KEY = st.secrets["API_KEY"]
+ORS_API_KEY = st.secrets["ORS_API_KEY"]
+ORS_client = openrouteservice.Client(key=ORS_API_KEY)
 gmaps = googlemaps.Client(key=API_KEY)
 
 
@@ -75,7 +77,7 @@ def get_elevation(gmaps, lat, lng):
 # -- Open route service maps api (after ors_client has been defined)
 # Snaps coordinates to nearest to road
 def snap_to_road(lat, lon):
-    result = ors_client.pelias_reverse((lon, lat))
+    result = ORS_client.pelias_reverse((lon, lat))
     snapped = result['features'][0]['geometry']['coordinates']  # [lon, lat]
     return [snapped[1], snapped[0]]  # Return as [lat, lon]
 
@@ -243,7 +245,7 @@ run = st.button("Run", use_container_width=True)
 st.session_state.setdefault('prediction', None)
 st.session_state.setdefault('ran', False)
 
-bypass = st.segmented_control("Google Maps API", ["Use", "Bypass"], selection_mode="single")
+bypass = st.segmented_control("Maps API", ["Use", "Bypass"], selection_mode="single")
 
 if run:
     st.session_state.ran = True
@@ -265,24 +267,32 @@ if st.session_state.ran:
 
     gas_price = st.number_input("Estimated Gas Price", value=None)
     tank_size = st.number_input("Gas Tank Size (gallons)", value=None)
-    highway_ratio = st.slider("Highway Driving %", 0, 100, value=75) / 100
 
     mileage = None
 
-    # Use google maps api: disply features
+    # Use maps api: disply features
     if bypass == "Use":
+      highway_ratio = 0.75
+
+      # Start and end inputs
       start = st.text_input("Start point")
       end = st.text_input("End point")
-      subdivision = st.slider("tenths of a mile between route markers", 1, 1000)
+
+      # Route display subdivision
+      subdivision = st.slider("tenths of a mile between route markers", 1, 250)
       subdivision /= 10
 
       if start and end:
         start_coords = get_lat_lng(gmaps, start)
         end_coords = get_lat_lng(gmaps, end)
 
+        # If google maps returns coords
         if start_coords and end_coords:
           start_lat, start_lon = start_coords
           end_lat, end_lon = end_coords
+
+          # Button for finding gas stations
+          gas_locator = st.button("Locate gas stations along route")
 
           # Get route
           route = ORS_client.directions(
@@ -290,7 +300,7 @@ if st.session_state.ran:
               profile='driving-car',
               format='geojson'
           )
-          
+
 
           # Decode the polyline from geometry (or use GeoJSON coordinates directly)
           geometry = route['features'][0]['geometry']['coordinates']
@@ -298,22 +308,58 @@ if st.session_state.ran:
           # Convert geometry to a DataFrame
           route_points = pd.DataFrame(geometry, columns=['lon', 'lat'])
 
+          # Locate gas stations along route
+          if gas_locator:
+            with st.spinner("Locating gas stations...."):
+              # subdivide route so that you have 80% of gas tank left between waypoints if filling up at gas stations
+              gas_waypoints = subdivide_route(route_points, (st.session_state.prediction[0][1] * tank_size) * 0.8)
+
+              gas_stations = []
+
+              # iterate through gas waypoints and locate gas stations
+              for index, row in gas_waypoints.iterrows():
+                stations = locate_gas(row['lat'], row['lon'])
+                if stations:
+                  print(f"fully formatted: {stations}")
+                  gas_stations.append(stations)
+
+              gas_station_points = []
+
+              for station_set in gas_stations:
+                for station_coords in station_set[0]:
+                  gas_station_points.append([station_coords[1], station_coords[0]])
+
+
+              # Make pandas dataframe out of points and add color and size
+              gas_station_points = pd.DataFrame(gas_station_points, columns=['lat', 'lon'])
+              gas_station_points['color'] = '#AAFF0080'
+              gas_station_points['size'] = 50
+
+          # Make dataframe of route display points and add color and size
           route_display_points = subdivide_route(route_points, subdivision)
           route_display_points['color'] = '#FF0000'
           route_display_points['size'] = 0.1
 
+          # Make end and start points for route and add color and size
           end_points = pd.DataFrame({"lat": [start_lat, end_lat], "lon": [start_lon, end_lon]})
           end_points['color'] = '#0000FF80'
           end_points['size'] = 75
 
-          final_points = pd.concat([route_display_points, end_points], ignore_index=True)
+          # Combine route display and end points into one dataframe
+          if gas_locator:
+            final_points = pd.concat([route_display_points, end_points, gas_station_points], ignore_index=True)
+          else:
+            final_points = pd.concat([route_display_points, end_points], ignore_index=True)
 
+          # Display map
           st.map(final_points, color='color', size='size')
 
+          # Get elevation from start and end coords
           start_elevation = get_elevation(gmaps, start_lat, start_lon)
           end_elevation = get_elevation(gmaps, end_lat, end_lon)
           avg_elevation = (meters_to_feet(start_elevation)  + meters_to_feet(end_elevation)) / 2
 
+          # Elevation checks and warnings
           if avg_elevation >= 1750:
             st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about %{int((avg_elevation / 1000) * 3)}* :warning:")
           if (end_elevation - start_elevation) >= 500:
@@ -321,13 +367,22 @@ if st.session_state.ran:
           if (end_elevation - start_elevation) <= -500:
             st.write(f"*Net elevation change descends {int(meters_to_feet(end_elevation - start_elevation))} feet which may increase fuel efficiency*")
 
+          # Link to google maps route
           st.link_button("Go to Google maps route", f"https://www.google.com/maps/dir/?api=1&origin={start_lat},{start_lon}&destination={end_lat},{end_lon}&travelmode=driving")
-          
+
+          # Auto populate milaege from route
           mileage = meters_to_miles(route['features'][0]['properties']['summary']['distance'])
           st.write(f"Mileage: {truncate(mileage, 1)}")
-    else:
-      mileage = st.number_input("Trip Mileage Estimate", value=None)
 
+          # Display elevation stats
+          st.write("Elevation Change (m): " + str(end_elevation - start_elevation))
+          st.write("Average Elevation (m): " + str(avg_elevation))
+    else:
+      # Request mileage from the user
+      mileage = st.number_input("Trip Mileage Estimate", value=None)
+      highway_ratio = st.slider("Highway Driving %", 0, 100, value=75) / 100
+
+    # Calculate stats from mileage etc
     if mileage:
         h_miles = highway_ratio * mileage
         r_miles = (1 - highway_ratio) * mileage
@@ -336,15 +391,15 @@ if st.session_state.ran:
     if mileage and tank_size:
         tank_refills = int(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / tank_size)
 
-    if mileage:
-        st.table(pd.DataFrame([[h_miles, r_miles]], columns=["Highway Miles", "City Miles"]))
     if mileage and gas_price and tank_size:
         st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
 
+    # Emmisions estimate
     if mileage:
       emissions_tpm = gpkm_to_tpm(st.session_state.prediction[0][2])
       st.subheader(f"Total Emissions (Tonnes): {truncate(emissions_tpm * mileage, 10)}")
 
+      # Display donation stuff
       st.write(f"Donate ${truncate((emissions_tpm * mileage) * 18.68, 2)}, to offset carbon emmisions")
 
       st.link_button("Donate Here", "https://www.cooleffect.org/store/donate")
