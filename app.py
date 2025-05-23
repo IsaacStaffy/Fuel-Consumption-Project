@@ -361,7 +361,7 @@ if st.session_state.ran:
 
           # Elevation checks and warnings
           if avg_elevation >= 1750:
-            st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about %{int((avg_elevation / 1000) * 3)}* :warning:")
+            st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about {int((avg_elevation / 1000) * 3)}%* :warning:")
           if (end_elevation - start_elevation) >= 500:
             st.write(f":warning: *Warning: Net elevation change ascends {int(meters_to_feet(end_elevation - start_elevation))} feet which may reduce fuel efficiency* :warning:")
           if (end_elevation - start_elevation) <= -500:
