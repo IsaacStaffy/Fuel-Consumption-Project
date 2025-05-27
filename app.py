@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pickle
 import pandas as pd
@@ -343,106 +344,106 @@ if st.session_state.ran:
             )
           # Check if route is valid
           except:
-            st.title(":warning: No route found, :warning:")
+            st.title(":warning: No route found :warning:")
+            route = None
 
+          if route:
+            # Decode the polyline from geometry (or use GeoJSON coordinates directly)
+            geometry = route['features'][0]['geometry']['coordinates']
 
+            # Convert geometry to a DataFrame
+            route_points = pd.DataFrame(geometry, columns=['lon', 'lat'])
 
-          # Decode the polyline from geometry (or use GeoJSON coordinates directly)
-          geometry = route['features'][0]['geometry']['coordinates']
+            # Locate gas stations along route
+            if gas_locator:
+              with st.status("Locating gas stations...."):
+                # subdivide route so that you have 80% of gas tank left between waypoints if filling up at gas stations
+                gas_waypoints = subdivide_route(route_points, (st.session_state.prediction[0][1] * tank_size) * gas_subdivision)
 
-          # Convert geometry to a DataFrame
-          route_points = pd.DataFrame(geometry, columns=['lon', 'lat'])
-
-          # Locate gas stations along route
-          if gas_locator:
-            with st.status("Locating gas stations...."):
-              # subdivide route so that you have 80% of gas tank left between waypoints if filling up at gas stations
-              gas_waypoints = subdivide_route(route_points, (st.session_state.prediction[0][1] * tank_size) * gas_subdivision)
-
-              gas_stations = []
-              # iterate through gas waypoints and locate gas stations
-              for index, row in gas_waypoints.iterrows():
-                stations = locate_gas(row['lat'], row['lon'])
-                # if it found stations
-                if stations:
-                  print(f"fully formatted: {stations}")
-                  gas_stations.append(stations)
-                else:
-                  # attempt to snap it to a city
-                  snapped_coords = snap_to_city(row['lat'], row['lon'])
-                  # If it succesfully snapped coords to a city
-                  if len(snapped_coords) == 3:
-                    print(f"snapped to city: {snapped_coords}")
-                    stations = locate_gas(snapped_coords[0], snapped_coords[1])
-                  # didn't find city and snapped to area instead
-                  elif len(snapped_coords) == 4:
-                    print("no city near")
-                  # something wrong happened
-                  else:
-                    print("Error snapping to town")
+                gas_stations = []
+                # iterate through gas waypoints and locate gas stations
+                for index, row in gas_waypoints.iterrows():
+                  stations = locate_gas(row['lat'], row['lon'])
+                  # if it found stations
                   if stations:
-                    print(f"fully formatted after snapped: {stations}")
+                    print(f"fully formatted: {stations}")
                     gas_stations.append(stations)
+                  else:
+                    # attempt to snap it to a city
+                    snapped_coords = snap_to_city(row['lat'], row['lon'])
+                    # If it succesfully snapped coords to a city
+                    if len(snapped_coords) == 3:
+                      print(f"snapped to city: {snapped_coords}")
+                      stations = locate_gas(snapped_coords[0], snapped_coords[1])
+                    # didn't find city and snapped to area instead
+                    elif len(snapped_coords) == 4:
+                      print("no city near")
+                    # something wrong happened
+                    else:
+                      print("Error snapping to town")
+                    if stations:
+                      print(f"fully formatted after snapped: {stations}")
+                      gas_stations.append(stations)
 
-              print(f"searching for gas stations along {len(gas_stations)} points")
+                print(f"searching for gas stations along {len(gas_stations)} points")
 
-              gas_station_points = []
+                gas_station_points = []
 
-              for station_set in gas_stations:
-                for station_coords in station_set[0]:
-                  gas_station_points.append([station_coords[1], station_coords[0]])
+                for station_set in gas_stations:
+                  for station_coords in station_set[0]:
+                    gas_station_points.append([station_coords[1], station_coords[0]])
 
-                for station_info in station_set[1]:
-                  st.write(station_info)
+                  for station_info in station_set[1]:
+                    st.write(station_info)
 
 
-              # Make pandas dataframe out of points and add color and size
-              gas_station_points = pd.DataFrame(gas_station_points, columns=['lat', 'lon'])
-              gas_station_points['color'] = '#AAFF0080'
-              gas_station_points['size'] = 50
+                # Make pandas dataframe out of points and add color and size
+                gas_station_points = pd.DataFrame(gas_station_points, columns=['lat', 'lon'])
+                gas_station_points['color'] = '#AAFF0080'
+                gas_station_points['size'] = 50
 
-          # Make dataframe of route display points and add color and size
-          route_display_points = subdivide_route(route_points, subdivision)
-          route_display_points['color'] = '#FF0000'
-          route_display_points['size'] = 0.1
+            # Make dataframe of route display points and add color and size
+            route_display_points = subdivide_route(route_points, subdivision)
+            route_display_points['color'] = '#FF0000'
+            route_display_points['size'] = 0.1
 
-          # Make end and start points for route and add color and size
-          end_points = pd.DataFrame({"lat": [start_lat, end_lat], "lon": [start_lon, end_lon]})
-          end_points['color'] = '#0000FF80'
-          end_points['size'] = 75
+            # Make end and start points for route and add color and size
+            end_points = pd.DataFrame({"lat": [start_lat, end_lat], "lon": [start_lon, end_lon]})
+            end_points['color'] = '#0000FF80'
+            end_points['size'] = 75
 
-          # Combine route display and end points into one dataframe
-          if gas_locator:
-            final_points = pd.concat([route_display_points, end_points, gas_station_points], ignore_index=True)
-          else:
-            final_points = pd.concat([route_display_points, end_points], ignore_index=True)
+            # Combine route display and end points into one dataframe
+            if gas_locator:
+              final_points = pd.concat([route_display_points, end_points, gas_station_points], ignore_index=True)
+            else:
+              final_points = pd.concat([route_display_points, end_points], ignore_index=True)
 
-          # Display map
-          st.map(final_points, color='color', size='size')
+            # Display map
+            st.map(final_points, color='color', size='size')
 
-          # Get elevation from start and end coords
-          start_elevation = get_elevation(gmaps, start_lat, start_lon)
-          end_elevation = get_elevation(gmaps, end_lat, end_lon)
-          avg_elevation = (meters_to_feet(start_elevation)  + meters_to_feet(end_elevation)) / 2
+            # Get elevation from start and end coords
+            start_elevation = get_elevation(gmaps, start_lat, start_lon)
+            end_elevation = get_elevation(gmaps, end_lat, end_lon)
+            avg_elevation = (meters_to_feet(start_elevation)  + meters_to_feet(end_elevation)) / 2
 
-          # Elevation checks and warnings
-          if avg_elevation >= 1750:
-            st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about {int((avg_elevation / 1000) * 3)}%* :warning:")
-          if (end_elevation - start_elevation) >= 500:
-            st.write(f":warning: *Warning: Net elevation change ascends {int(meters_to_feet(end_elevation - start_elevation))} feet which may reduce fuel efficiency* :warning:")
-          if (end_elevation - start_elevation) <= -500:
-            st.write(f"*Net elevation change descends {int(meters_to_feet(end_elevation - start_elevation))} feet which may increase fuel efficiency*")
+            # Elevation checks and warnings
+            if avg_elevation >= 1750:
+              st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about {int((avg_elevation / 1000) * 3)}%* :warning:")
+            if (end_elevation - start_elevation) >= 500:
+              st.write(f":warning: *Warning: Net elevation change ascends {int(meters_to_feet(end_elevation - start_elevation))} feet which may reduce fuel efficiency* :warning:")
+            if (end_elevation - start_elevation) <= -500:
+              st.write(f"*Net elevation change descends {int(meters_to_feet(end_elevation - start_elevation))} feet which may increase fuel efficiency*")
 
-          # Link to google maps route
-          st.link_button("Go to Google maps route", f"https://www.google.com/maps/dir/?api=1&origin={start_lat},{start_lon}&destination={end_lat},{end_lon}&travelmode=driving")
+            # Link to google maps route
+            st.link_button("Go to Google maps route", f"https://www.google.com/maps/dir/?api=1&origin={start_lat},{start_lon}&destination={end_lat},{end_lon}&travelmode=driving")
 
-          # Auto populate milaege from route
-          mileage = meters_to_miles(route['features'][0]['properties']['summary']['distance'])
-          st.write(f"Mileage: {truncate(mileage, 1)}")
+            # Auto populate milaege from route
+            mileage = meters_to_miles(route['features'][0]['properties']['summary']['distance'])
+            st.write(f"Mileage: {truncate(mileage, 1)}")
 
-          # Display elevation stats
-          st.write("Elevation Change (m): " + str(truncate(end_elevation - start_elevation, 2)))
-          st.write("Average Elevation (m): " + str(truncate(avg_elevation, 2)))
+            # Display elevation stats
+            st.write("Elevation Change (m): " + str(truncate(end_elevation - start_elevation, 2)))
+            st.write("Average Elevation (m): " + str(truncate(avg_elevation, 2)))
     else:
       # Request mileage from the user
       mileage = st.number_input("Trip Mileage Estimate", value=None)
