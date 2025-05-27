@@ -11,7 +11,7 @@ import openrouteservice
 import requests
 import json
 from geopy.distance import geodesic
-
+from geopy.geocoders import Nominatim
 
 API_KEY = st.secrets["API_KEY"]
 ORS_API_KEY = st.secrets["ORS_API_KEY"]
@@ -81,8 +81,43 @@ def snap_to_road(lat, lon):
     snapped = result['features'][0]['geometry']['coordinates']  # [lon, lat]
     return [snapped[1], snapped[0]]  # Return as [lat, lon]
 
+# Snap coords to nearest city/town
+def snap_to_city(latitude, longitude):
+    # Initialize geolocator with user-agent
+    geolocator = Nominatim(user_agent="city_snapper")
+
+    # Get location from coordinates
+    location = geolocator.reverse((latitude, longitude), language='en', exactly_one=True, timeout=10)
+
+    if location:
+        # Extract address details
+        address = location.raw.get('address', {})
+        
+        # Try to get the most accurate city/town/village info
+        city = address.get('city', None)
+        town = address.get('town', None)
+        village = address.get('village', None)
+        suburb = address.get('suburb', None)
+        
+        # Use a hierarchy of fallback options
+        if city:
+            return location.latitude, location.longitude, city
+        elif town:
+            return location.latitude, location.longitude, town
+        elif village:
+            return location.latitude, location.longitude, village
+        elif suburb:
+            return location.latitude, location.longitude, suburb
+        else:
+            # Return general location if no city/town info available
+            state = address.get('state', '')
+            country = address.get('country', '')
+            return location.latitude, location.longitude, f"{state}, {country}", 'spacer'
+    else:
+        return None
+
 # Locate gas stations: returns [[[lon1, lat1], [lon2, lat2]], [{'name': 'Chevron'}, {'name': 'Shell'}]] up to 3 stations
-def locate_gas(lat, lon, search_radius=2000, amount=3, ORS_API_KEY=ORS_API_KEY):
+def locate_gas(lat, lon, search_radius=2000, amount=10, ORS_API_KEY=ORS_API_KEY):
   body = {"request":"pois","geometry":{"geojson":{"type":"Point","coordinates":[lon, lat]},"buffer":search_radius},"filters":{"category_ids":[596]},"limit":amount}
   headers = {
       'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
@@ -292,7 +327,12 @@ if st.session_state.ran:
           end_lat, end_lon = end_coords
 
           # Button for finding gas stations
-          gas_locator = st.button("Locate gas stations along route")
+          if tank_size:
+            gas_locator = st.button("Locate gas stations along route")
+            gas_subdivision = st.slider("percent of tank between gas stops", 0, 100, value=25) * 0.01
+          else:
+            gas_locator = False
+            gas_subdivision = 0
 
           # Get route
           route = ORS_client.directions(
@@ -310,24 +350,45 @@ if st.session_state.ran:
 
           # Locate gas stations along route
           if gas_locator:
-            with st.spinner("Locating gas stations...."):
+            with st.status("Locating gas stations...."):
               # subdivide route so that you have 80% of gas tank left between waypoints if filling up at gas stations
-              gas_waypoints = subdivide_route(route_points, (st.session_state.prediction[0][1] * tank_size) * 0.8)
+              gas_waypoints = subdivide_route(route_points, (st.session_state.prediction[0][1] * tank_size) * gas_subdivision)
 
               gas_stations = []
-
               # iterate through gas waypoints and locate gas stations
               for index, row in gas_waypoints.iterrows():
                 stations = locate_gas(row['lat'], row['lon'])
+                # if it found stations
                 if stations:
                   print(f"fully formatted: {stations}")
                   gas_stations.append(stations)
+                else:
+                  # attempt to snap it to a city
+                  snapped_coords = snap_to_city(row['lat'], row['lon'])
+                  # If it succesfully snapped coords to a city
+                  if len(snapped_coords) == 3:
+                    print(f"snapped to city: {snapped_coords}")
+                    stations = locate_gas(snapped_coords[0], snapped_coords[1])
+                  # didn't find city and snapped to area instead
+                  elif len(snapped_coords) == 4:
+                    print("no city near")
+                  # something wrong happened
+                  else:
+                    print("Error snapping to town")
+                  if stations:
+                    print(f"fully formatted after snapped: {stations}")
+                    gas_stations.append(stations)
+
+              print(f"searching for gas stations along {len(gas_stations)} points")
 
               gas_station_points = []
 
               for station_set in gas_stations:
                 for station_coords in station_set[0]:
                   gas_station_points.append([station_coords[1], station_coords[0]])
+
+                for station_info in station_set[1]:
+                  st.write(station_info)
 
 
               # Make pandas dataframe out of points and add color and size
@@ -375,8 +436,8 @@ if st.session_state.ran:
           st.write(f"Mileage: {truncate(mileage, 1)}")
 
           # Display elevation stats
-          st.write("Elevation Change (m): " + str(end_elevation - start_elevation))
-          st.write("Average Elevation (m): " + str(avg_elevation))
+          st.write("Elevation Change (m): " + str(truncate(end_elevation - start_elevation, 2)))
+          st.write("Average Elevation (m): " + str(truncate(avg_elevation, 2)))
     else:
       # Request mileage from the user
       mileage = st.number_input("Trip Mileage Estimate", value=None)
@@ -389,7 +450,7 @@ if st.session_state.ran:
     if mileage and gas_price:
         total_cost = truncate(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) * gas_price, 2)
     if mileage and tank_size:
-        tank_refills = int(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / tank_size)
+        tank_refills = int((((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / tank_size) * 0.75)
 
     if mileage and gas_price and tank_size:
         st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
