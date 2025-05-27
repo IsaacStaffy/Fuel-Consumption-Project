@@ -307,7 +307,7 @@ if st.session_state.ran:
     mileage = None
 
     # Use maps api: disply features
-    if bypass == "Use":
+    if st.toggle("Use Maps API", value=True):
       highway_ratio = 0.75
 
       # Start and end inputs
