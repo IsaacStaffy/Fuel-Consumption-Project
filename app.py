@@ -92,13 +92,13 @@ def snap_to_city(latitude, longitude):
     if location:
         # Extract address details
         address = location.raw.get('address', {})
-        
+
         # Try to get the most accurate city/town/village info
         city = address.get('city', None)
         town = address.get('town', None)
         village = address.get('village', None)
         suburb = address.get('suburb', None)
-        
+
         # Use a hierarchy of fallback options
         if city:
             return location.latitude, location.longitude, city
@@ -328,18 +328,23 @@ if st.session_state.ran:
 
           # Button for finding gas stations
           if tank_size:
+            gas_subdivision = st.slider("percent of tank between shown gas stops", 0, 100, value=25) * 0.01
             gas_locator = st.button("Locate gas stations along route")
-            gas_subdivision = st.slider("percent of tank between gas stops", 0, 100, value=25) * 0.01
           else:
             gas_locator = False
             gas_subdivision = 0
 
           # Get route
-          route = ORS_client.directions(
-              coordinates=[[start_lon, start_lat], [end_lon, end_lat]],
-              profile='driving-car',
-              format='geojson'
-          )
+          try:
+            route = ORS_client.directions(
+                coordinates=[[start_lon, start_lat], [end_lon, end_lat]],
+                profile='driving-car',
+                format='geojson'
+            )
+          # Check if route is valid
+          except:
+            st.title(":warning: No route found, :warning:")
+
 
 
           # Decode the polyline from geometry (or use GeoJSON coordinates directly)
@@ -450,7 +455,7 @@ if st.session_state.ran:
     if mileage and gas_price:
         total_cost = truncate(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) * gas_price, 2)
     if mileage and tank_size:
-        tank_refills = int((((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / tank_size) * 0.75)
+        tank_refills = int(((h_miles / st.session_state.prediction[0][1]) + (r_miles / st.session_state.prediction[0][0])) / (tank_size * 0.75))
 
     if mileage and gas_price and tank_size:
         st.table(pd.DataFrame([[total_cost, tank_refills]], columns=["Trip Cost", "Tank Refills"]))
