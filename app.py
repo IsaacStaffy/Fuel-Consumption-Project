@@ -281,8 +281,6 @@ run = st.button("Run", use_container_width=True)
 st.session_state.setdefault('prediction', None)
 st.session_state.setdefault('ran', False)
 
-bypass = st.segmented_control("Maps API", ["Use", "Bypass"], selection_mode="single")
-
 if run:
     st.session_state.ran = True
     with st.spinner("Running prediction..."):
@@ -307,7 +305,7 @@ if st.session_state.ran:
     mileage = None
 
     # Use maps api: disply features
-    if st.toggle("Use Maps API", value=True):
+    if st.toggle("Use Map API"):
       highway_ratio = 0.75
 
       # Start and end inputs
@@ -428,11 +426,11 @@ if st.session_state.ran:
 
             # Elevation checks and warnings
             if avg_elevation >= 1750:
-              st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} and at this elevation engine power and effciency will be reduced by about {int((avg_elevation / 1000) * 3)}%* :warning:")
+              st.write(f":warning: *Warning: The elevation you are driving at is {int(avg_elevation)} ft and at this elevation engine power and effciency will be reduced by about {int((avg_elevation / 1000) * 3)}%* :warning:")
             if (end_elevation - start_elevation) >= 500:
-              st.write(f":warning: *Warning: Net elevation change ascends {int(meters_to_feet(end_elevation - start_elevation))} feet which may reduce fuel efficiency* :warning:")
+              st.write(f":warning: *Warning: Net elevation change ascends {int(meters_to_feet(end_elevation - start_elevation))} ft which may reduce fuel efficiency* :warning:")
             if (end_elevation - start_elevation) <= -500:
-              st.write(f"*Net elevation change descends {int(meters_to_feet(end_elevation - start_elevation))} feet which may increase fuel efficiency*")
+              st.write(f"*Net elevation change descends {int(meters_to_feet(end_elevation - start_elevation))} ft which may increase fuel efficiency*")
 
             # Link to google maps route
             st.link_button("Go to Google maps route", f"https://www.google.com/maps/dir/?api=1&origin={start_lat},{start_lon}&destination={end_lat},{end_lon}&travelmode=driving")
