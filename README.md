@@ -1,6 +1,19 @@
 # Fuel-Consumption-Project
 Link to webpage: https://fuel-estimator.streamlit.app/
 
+
+This app is a fuel consumption estimator 
+
+
+
+
+
+
+
+
+Other links;
+Link to webpage: https://fuel-estimator.streamlit.app/
+
 Link to gdrive of machine learning model files due to github size constraints: https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv?usp=sharing
 
 Link to data sets: 
