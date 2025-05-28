@@ -1,4 +1,8 @@
 # Fuel-Consumption-Project
-Fuel consumption estimation program, using AI/machine learning to approximate your gas mileage depending on your car
+Link to webpage: https://fuel-estimator.streamlit.app/
+Link to extra machine learning models due to github size constraints: https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv?usp=sharing
 
+Link to data sets: 
+https://www.kaggle.com/datasets/ahmettyilmazz/fuel-consumption
+https://www.kaggle.com/datasets/imtkaggleteam/fuel-concumption-ratings-2023
 
