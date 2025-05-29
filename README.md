@@ -6,7 +6,7 @@ This app is a fuel consumption estimator that predicts city and highway fuel usa
 
 # 1: Input Vehicle Specifications: First enter in your vehicle’s specifications in the side panel.
 
-![VehicleStats](https://github.com/user-attachments/assets/e1eec5d0-debc-49be-8f96-9550621a836a)
+![VehicleStats](https://github.com/user-attachments/assets/2370aeed-a0c0-4f3f-85ec-9a458ee0f2c1)
 
 # 2: Run: Next, select the units you want, select the precision, and click Run.
 
@@ -14,7 +14,7 @@ This app is a fuel consumption estimator that predicts city and highway fuel usa
 
 # 3: Additional info: Third, enter additional stats like a rough estimate of gas price as well as gas tank size.
 
-![ExtraDetails](https://github.com/user-attachments/assets/ad0b6d1f-7633-4e17-aaa8-1ede6c37c219)
+![AdditonalDetails](https://github.com/user-attachments/assets/5d76ab1c-785b-4cef-ab07-3ff29f9d66d6)
 
 ## 4: Trip Calculator: -- two options  
 # A: Enter in trip mileage manually and provide highway to city road ratio.
