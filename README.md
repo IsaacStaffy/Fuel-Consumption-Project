@@ -25,10 +25,10 @@ This app is a fuel consumption estimator that predicts city and highway fuel usa
 
 ![MapApi](https://github.com/user-attachments/assets/97bacf87-f104-4627-bb08-0a7d51756d45)
 
-Using the Maps API, you can also check for gas stations along the route: choose.
+###### Using the Maps API, you can also check for gas stations along the route: choose.
 ![GasLocator](https://github.com/user-attachments/assets/760c3723-f35c-42aa-b098-fd8b563173de)
 
-Depending on route length searching for gas stations may take a minute
+###### Depending on route length searching for gas stations may take a minute
 ![ViewingGas](https://github.com/user-attachments/assets/b176bb6c-b068-4c04-9120-5cf59e825697)
 
 ## 5: Statistics: Statistics for your trip will display depending on the information provided.
@@ -36,13 +36,13 @@ Depending on route length searching for gas stations may take a minute
 ![Info](https://github.com/user-attachments/assets/f334a07f-b795-4bac-8597-44ebffd2f888)
 
 ## 6: Carbon Offset: Your total emissions as well as the donation amount to offset them is calculated and provided at the bottom.  
-Cool Effect is a great place to donate to offset emissions — Check it out here: [Visit Cool Effect](https://www.cooleffect.org/).
+###### Cool Effect is a great place to donate to offset emissions — Check it out here: [Visit Cool Effect](https://www.cooleffect.org/).
 
 ![CoolEffect](https://github.com/user-attachments/assets/2006b49b-b9fd-4673-95c9-fba88b58d407)
 
 
 
-Other links;
+## Other links
 Link to webpage: https://fuel-estimator.streamlit.app/
 
 Link to gdrive of machine learning model files due to github size constraints: https://drive.google.com/drive/folders/1efAbSVlSc8YIFFZ_9mAfZFyJsSRdD-jv?usp=sharing
