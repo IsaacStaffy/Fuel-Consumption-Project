@@ -287,9 +287,13 @@ if run:
         processed = preprocess_input(input_df)
         input_values = [processed.loc[0].values.tolist()]
         prediction = model.predict(input_values)
-        if units == 'miles per gallon':
-            prediction[0][0] = 235.215 / prediction[0][0]
-            prediction[0][1] = 235.215 / prediction[0][1]
+        # convert to mpg by default
+        prediction[0][0] = 235.215 / prediction[0][0]
+        prediction[0][1] = 235.215 / prediction[0][1]
+        # If l/100km convert back
+        if units == 'liters per 100 kilometers':
+          prediction[0][0] = 235.215 / prediction[0][0]
+          prediction[0][1] = 235.215 / prediction[0][1]
         st.session_state.prediction = prediction
 
 # ------------------------- Output Display -------------------------
