@@ -331,7 +331,7 @@ if st.session_state.ran:
 
           # Button for finding gas stations
           if tank_size:
-            gas_subdivision = st.slider("percent of tank between shown gas stops", 0, 100, value=25) * 0.01
+            gas_subdivision = st.slider("frequency of displayed gas stops, in percent of tank", 0, 100, value=25) * 0.01
             gas_locator = st.button("Locate gas stations along route")
           else:
             gas_locator = False
